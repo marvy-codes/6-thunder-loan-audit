@@ -265,6 +265,7 @@ contract ThunderLoanUpgraded is Initializable, OwnableUpgradeable, UUPSUpgradeab
         if (newFee > FEE_PRECISION) {
             revert ThunderLoan__BadNewFee();
         }
+        // @audit-low must emit an event when updating storage varaible
         s_flashLoanFee = newFee;
     }
 

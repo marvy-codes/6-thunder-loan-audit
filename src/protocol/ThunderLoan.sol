@@ -207,7 +207,11 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
 
         s_currentlyFlashLoaning[token] = true;
         assetToken.transferUnderlyingTo(receiverAddress, amount);
+
+        // @audit-info: messed up the slither disables
         // slither-disable-next-line unused-return reentrancy-vulnerabilities-2
+        // @follow-up
+        // @follow-up do we need the return value of this function call
         receiverAddress.functionCall(
             abi.encodeCall(
                 IFlashLoanReceiver.executeOperation,
@@ -225,6 +229,7 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
         if (endingBalance < startingBalance + fee) {
             revert ThunderLoan__NotPaidBack(startingBalance + fee, endingBalance);
         }
+        // @follow up
         s_currentlyFlashLoaning[token] = false;
     }
 

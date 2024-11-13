@@ -9,6 +9,7 @@ contract OracleUpgradeable is Initializable {
     address private s_poolFactory;
 
     function __Oracle_init(address poolFactoryAddress) internal onlyInitializing {
+        // @audit-info need to do zero address checks
         __Oracle_init_unchained(poolFactoryAddress);
     }
 
