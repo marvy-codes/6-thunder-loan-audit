@@ -65,6 +65,9 @@ contract AssetToken is ERC20 {
         s_exchangeRate = STARTING_EXCHANGE_RATE;
     }
 
+    // e only thunder loan can mint tokens
+    // q is there a way for us to break it 
+    // q can we call mint from another place
     function mint(address to, uint256 amount) external onlyThunderLoan {
         _mint(to, amount);
     }
@@ -73,6 +76,12 @@ contract AssetToken is ERC20 {
         _burn(account, amount);
     }
 
+    // wierd erc20s?
+    // what is USDC blacklist the AssetToken.sol or the thunderloan.sol
+    // q how does it affect our protocol
+    // @follow-up wierd erc20 with USDC
+    // @audit medium: what happens if usdc blacklist the contract
+    // in competitive audits, if a use is denylisted and if affects others, then you can reprt it
     function transferUnderlyingTo(address to, uint256 amount) external onlyThunderLoan {
         i_underlying.safeTransfer(to, amount);
     }
@@ -82,10 +91,14 @@ contract AssetToken is ERC20 {
         // 2. How big the fee is should be divided by the total supply
         // 3. So if the fee is 1e18, and the total supply is 2e18, the exchange rate be multiplied by 1.5
         // if the fee is 0.5 ETH, and the total supply is 4, the exchange rate should be multiplied by 1.125
-        // it should always go up, never down
+        // it should always go up, never down  INVARIANT!!
         // newExchangeRate = oldExchangeRate * (totalSupply + fee) / totalSupply
         // newExchangeRate = 1 (4 + 0.5) / 4
         // newExchangeRate = 1.125
+
+        // e what if total  supply is 0
+        // this breaks!! is it an issue
+        // @audit-gas too many storage read, better of as a memory variable
         uint256 newExchangeRate = s_exchangeRate * (totalSupply() + fee) / totalSupply();
 
         if (newExchangeRate <= s_exchangeRate) {

@@ -8,6 +8,11 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 contract OracleUpgradeable is Initializable {
     address private s_poolFactory;
 
+    // Proxies -> storage
+    // logic -> implementation -> constructor
+    // user -> proxy -> implementation contract
+    //        storage
+
     function __Oracle_init(address poolFactoryAddress) internal onlyInitializing {
         // @audit-info need to do zero address checks
         __Oracle_init_unchained(poolFactoryAddress);
@@ -17,11 +22,17 @@ contract OracleUpgradeable is Initializable {
         s_poolFactory = poolFactoryAddress;
     }
 
+    // calling an external function
+    // reentrancy??
+    // attack vectors, can i manipulate the price?
+    // check the test? @audit u should use forked test for this instead of mocked test
+
     function getPriceInWeth(address token) public view returns (uint256) {
         address swapPoolOfToken = IPoolFactory(s_poolFactory).getPool(token);
         return ITSwapPool(swapPoolOfToken).getPriceOfOnePoolTokenInWeth();
     }
 
+    // redundant
     function getPrice(address token) external view returns (uint256) {
         return getPriceInWeth(token);
     }

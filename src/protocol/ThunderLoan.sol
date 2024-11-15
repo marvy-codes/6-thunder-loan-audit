@@ -74,6 +74,9 @@ import { OracleUpgradeable } from "./OracleUpgradeable.sol";
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { IFlashLoanReceiver } from "../interfaces/IFlashLoanReceiver.sol";
 
+// @audit should implement this interface
+// import { IThunderLoan.sol } from "../interfaces/IThunderLoan.sol";
+
 contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, OracleUpgradeable {
     error ThunderLoan__NotAllowedToken(IERC20 token);
     error ThunderLoan__CantBeZero();
@@ -94,7 +97,8 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
     mapping(IERC20 => AssetToken) public s_tokenToAssetToken;
 
     // The fee in WEI, it should have 18 decimals. Each flash loan takes a flat fee of the token price.
-    uint256 private s_feePrecision;
+    // @audit info: this doesnt change why do we have it in storage, constant and imutable to save gas
+    uint256 private s_feePrecision;  //
     uint256 private s_flashLoanFee; // 0.3% ETH fee
 
     mapping(IERC20 token => bool currentlyFlashLoaning) private s_currentlyFlashLoaning;
@@ -137,6 +141,8 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
     /*//////////////////////////////////////////////////////////////
                            EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    // @audit low - initializing the project can be front-run // rather initialize in the deploy script
     function initialize(address tswapAddress) external initializer {
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
@@ -145,14 +151,21 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
         s_flashLoanFee = 3e15; // 0.3% ETH fee
     }
 
+    // @audit-info where is the natspec????
     function deposit(IERC20 token, uint256 amount) external revertIfZero(amount) revertIfNotAllowedToken(token) {
         AssetToken assetToken = s_tokenToAssetToken[token];
         uint256 exchangeRate = assetToken.getExchangeRate();
         uint256 mintAmount = (amount * assetToken.EXCHANGE_RATE_PRECISION()) / exchangeRate;
         emit Deposit(msg.sender, token, amount);
         assetToken.mint(msg.sender, mintAmount);
+
+        // q  why are e updating, this seems wrong
+        // @audit folow-up
+        // @audit-high people can't redeem thier tokens because if this update
         uint256 calculatedFee = getCalculatedFee(token, amount);
         assetToken.updateExchangeRate(calculatedFee);
+
+
         token.safeTransferFrom(msg.sender, address(assetToken), amount);
     }
 
@@ -233,6 +246,7 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
         s_currentlyFlashLoaning[token] = false;
     }
 
+    // this is what the contract expects to repay using
     function repay(IERC20 token, uint256 amount) public {
         if (!s_currentlyFlashLoaning[token]) {
             revert ThunderLoan__NotCurrentlyFlashLoaning();
@@ -241,10 +255,11 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
         token.safeTransferFrom(msg.sender, address(assetToken), amount);
     }
 
+    // ok @audit-info needs natspec
     function setAllowedToken(IERC20 token, bool allowed) external onlyOwner returns (AssetToken) {
         if (allowed) {
             if (address(s_tokenToAssetToken[token]) != address(0)) {
-                revert ThunderLoan__AlreadyAllowed();
+                revert ThunderLoan__AlreadyAllowed();  // @audit-info revert with info
             }
             string memory name = string.concat("ThunderLoan ", IERC20Metadata(address(token)).name());
             string memory symbol = string.concat("tl", IERC20Metadata(address(token)).symbol());
@@ -260,6 +275,10 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
         }
     }
 
+    // 1 USDC == 0.1 WETH
+    // 1 USDC + 0.003
+    // 1 USDC + 0.003 usdc
+    // @audit IMPACTprices are wrong -> med/high  LIKELEHOOD High
     function getCalculatedFee(IERC20 token, uint256 amount) public view returns (uint256 fee) {
         //slither-disable-next-line divide-before-multiply
         uint256 valueOfBorrowedToken = (amount * getPriceInWeth(address(token))) / s_feePrecision;

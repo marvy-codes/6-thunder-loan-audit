@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import { Test, console } from "forge-std/Test.sol";
+import { Test, console } from "lib/forge-std/src/Test.sol";
 import { BaseTest, ThunderLoan } from "./BaseTest.t.sol";
 import { AssetToken } from "../../src/protocol/AssetToken.sol";
 import { MockFlashLoanReceiver } from "../mocks/MockFlashLoanReceiver.sol";
@@ -86,5 +86,19 @@ contract ThunderLoanTest is BaseTest {
 
         assertEq(mockFlashLoanReceiver.getBalanceDuring(), amountToBorrow + AMOUNT);
         assertEq(mockFlashLoanReceiver.getBalanceAfter(), AMOUNT - calculatedFee);
+    }
+
+    // do a flash loan and try to redeem
+    function testRedeemAfterLoan() public setAllowedToken hasDeposits {
+        uint256 amountToBorrow = AMOUNT * 10;
+        uint256 calculatedFee = thunderLoan.getCalculatedFee(tokenA, amountToBorrow);
+        vm.startPrank(user);
+        tokenA.mint(address(mockFlashLoanReceiver), calculatedFee);
+        thunderLoan.flashloan(address(mockFlashLoanReceiver), tokenA, amountToBorrow, "");
+        vm.stopPrank();
+
+        uint256 amountToRedeem = type(uint256).max;
+        vm.startPrank(liquidityProvider);
+        thunderLoan.redeem(tokenA, amountToRedeem);
     }
 }
